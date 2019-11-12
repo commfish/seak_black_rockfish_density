@@ -39,11 +39,11 @@ clean_up_II <- function(data, variable){
 clean_up <- function(data, variable){
   
   data %>% 
-    dplyr::select(X = {{variable}}) %>% 
+    dplyr::select(X = {{variable}}, year) %>% 
     drop_na(X) %>% 
     group_by(X) %>% 
     summarise(n = n()) %>% 
-    ungroup() %>% 
+    # group_by(year) %>% 
     mutate(prop = range01(n / sum(n))) %>% 
     dplyr::select(-n)
   
