@@ -11,7 +11,7 @@ range01 <- function(x){
   (x - min(x)) / (max(x) - min(x))
 }
 
-
+# setting up for annual age comp - not enough data
 clean_up_II <- function(data, variable){
   
   brf %>% 

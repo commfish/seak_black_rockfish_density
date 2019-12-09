@@ -12,7 +12,7 @@ setwd(here::here("code"))
 # these will not allow the model to converge
 # combine sport and comm age data
 
-# Femnale only data for sport and commercial fisheries
+# Female only data for sport and commercial fisheries
 read_csv(here::here("data/br_bio.csv"), guess = 50000) %>% 
   rename_all(tolower) %>% 
   dplyr::select(year, Area = g_management_area_code, 
@@ -208,8 +208,8 @@ dat %>%
   geom_line(aes(y = fit), color = 1)
 
 fem_A50 <- -a / b # 50% selected
-female <- rep
-fem_M <- M
-male_A50 <- -a / b
-male <- rep
-male_M <- M
+# female <- rep
+# fem_M <- M
+# male_A50 <- -a / b
+# male <- rep
+# male_M <- M
