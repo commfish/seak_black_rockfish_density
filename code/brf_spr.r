@@ -2,7 +2,7 @@
 # ben.williams@alaska.gov
 
 # load ----
-source(here::here("code/helper.r"))
+source("code/helper.r")
 
 setwd(here::here("code"))
 
@@ -12,6 +12,7 @@ setwd(here::here("code"))
 # these will not allow the model to converge
 # combine sport and comm age data
 
+# Femnale only data for sport and commercial fisheries
 read_csv(here::here("data/br_bio.csv"), guess = 50000) %>% 
   rename_all(tolower) %>% 
   dplyr::select(year, Area = g_management_area_code, 
@@ -19,28 +20,37 @@ read_csv(here::here("data/br_bio.csv"), guess = 50000) %>%
                 weight = weight_kilograms) %>% 
   filter(sex == 2) %>%
   dplyr::select(-sex) %>%
-  mutate(length = round(length / 10)) %>% 
+  mutate(length = round(length / 10),
+         fish = "comm") %>% 
   bind_rows(read_csv(here::here("data/sport_brf_bio_se.csv"), guess = 50000) %>% 
               rename_all(tolower) %>% 
               filter(sex=="F") %>%
               dplyr::select(year, Area = area, 
                             length, age, sex , weight = wt_kg) %>% 
               dplyr::select(-sex) %>%
-              mutate(length = round(length / 10))) %>% 
-  drop_na() %>% 
-  filter(Area %in% c("CSEO"), !is.na(age), !is.na(length), year!=2001, age<25) -> brf
+              mutate(length = round(length / 10),
+                     fish = "sport")) %>% 
+  filter(Area %in% c("CSEO"), !is.na(age), !is.na(length), 
+         year!=2001) -> brf
 
-# get length/weight relationship
+# read_csv(here::here("data/kodiak_brf.csv"), guess = 50000) %>%
+#   filter(age>0 & age<26, sex==2, !is.na(age), !is.na(length),
+#          year>2001) -> brf
+
+# estimate length/weight relationship
 
 lw <- unname(lm(log(weight) ~ log(length), data = brf)$coef)
 lw_int = (lw[1])
 lw_slope = (lw[2])
 
-plot(brf$length, brf$weight)
-lines(ddd$length, ddd$weight, col = 4)
+data.frame(length = 1:70) %>% 
+  mutate(weight = exp(lw_int + lw_slope * log(length)))  %>% 
+  ggplot(aes(length, weight)) + 
+  geom_line() + 
+  geom_point(data = brf, alpha = 0.2)
 
-data.frame(length = 1:80) %>% 
-  mutate(weight = exp(lw_int + lw_slope * log(length))) -> ddd
+
+# maturity at age from Kodiak study
 
 mat_int = -7.521637
 mat_slope = 0.717806
@@ -56,7 +66,7 @@ mat_slope = 0.717806
 
 clean_up(brf, age) %>% 
   # group_by(year) %>% 
-  left_join(expand.grid(X = 1:25), .) %>%
+  left_join(expand.grid(X = 1:30), .) %>%
   mutate(prop = replace_na(prop, 0)) -> dat
 
 # pre-flight check that the data are in a good form and starting values are reasonable 
@@ -74,9 +84,9 @@ brf %>%
 
 # selectivity
 
-alpha = 12.5
-beta = -1.5
-M = 0.12
+alpha = 10
+beta = -1.0
+M = 0.123
 F = 0.07
 
 dat %>% 
@@ -89,13 +99,12 @@ for(i in 2:nrow(dd)){
 }
 
 dd %>%
-  group_by(year) %>% 
+  # group_by(year) %>% 
   mutate(C = N * (1 - exp(-M -F * sel)) * F * sel/(M + F * sel),
          fit_prop = C / max(C)) %>% 
   ggplot(aes(X, prop)) + 
   geom_bar(stat = "identity", alpha = 0.3) +
-  geom_line(aes(y = fit_prop)) + 
-  facet_wrap(~year)
+  geom_line(aes(y = fit_prop)) 
 
 # TMB model ----
 compile("brf_spr.cpp")
@@ -113,21 +122,22 @@ data = list(age = brf$age,
 
 # starting parameters
 params <- list(Linf = 55, kappa = 0.15, t0 = -0.5, log_von_sigma = 0.001,
-               Fcur = 0.05, M = 0.123,
-               alpha = 12, beta = -1.5, log_sel_sigma = 0.0001)
+               Fcur = 0.07, M = 0.123,
+               alpha = 10, beta = -1.0, log_sel_sigma = 0.0001)
 
 # add parameter bounds 
 map = list(M = factor(NA))
            # alpha = factor(NA), beta = factor(NA)) #M = factor(NA)
 L = list(Linf = 20, kappa = 0.05, t0 = -10.0, log_von_sigma = 0.0001,
          Fcur = 0.03, 
-         #M = 0.08,
+         # M = 0.1,
          alpha = 5, 
-         beta = -3, 
+         beta = -2.5, 
          log_sel_sigma = 0.0001)
+
 U = list(Linf = 70, kappa = 0.35, t0 = 5.0, log_von_sigma = 10,
          Fcur = 0.2, 
-         #M = 0.2,
+         # M = 0.2,
          alpha = 17, 
          beta = -0.9, 
          log_sel_sigma = 10)
@@ -164,6 +174,10 @@ M <- model$report()$M
 Fcur <- model$report()$Fcur
 fished <- model$report()$fished 
 unfished <- model$report()$unfished 
+model$report()$exploitB
+
+ifelse(is.nan(fished), 0, fished) -> fished
+ifelse(is.nan(unfished), 0, unfished) -> unfished
 
 data.frame(age = dat$X,
            fished = fished, 
@@ -172,7 +186,7 @@ data.frame(age = dat$X,
   geom_line() + 
   geom_line(aes(y = fished), color = 4) + 
   expand_limits(y = c(0, 0.03))
-sum(fished) / sum(unfished)
+sum(fished) / sum(unfished) # SPR
 
 # von b
 
@@ -183,7 +197,7 @@ brf %>%
   geom_line(aes(y = yfit)) + 
   expand_limits(x = 0, y = 0)
 
-# selectivity 
+# age comp 
 dat %>% 
   mutate(sel = S,
          catch = C,
@@ -193,7 +207,7 @@ dat %>%
   geom_bar(stat = "identity", alpha = 0.3) +
   geom_line(aes(y = fit), color = 1)
 
-fem_A50 <- -a / b
+fem_A50 <- -a / b # 50% selected
 female <- rep
 fem_M <- M
 male_A50 <- -a / b

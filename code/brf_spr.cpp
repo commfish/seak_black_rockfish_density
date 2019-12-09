@@ -1,4 +1,5 @@
 // determine selectivity parameters conditioned on catch at age
+// determine current SPR level
 
 #include<TMB.hpp>
 template<class Type>
@@ -17,7 +18,7 @@ Type objective_function<Type>::operator()()
   DATA_VECTOR(prop);
   int n = X.size();
   
-  // weight
+  // weight & maturity
 
   DATA_INTEGER(lw_int);
   DATA_INTEGER(lw_slope);
@@ -59,17 +60,20 @@ Type objective_function<Type>::operator()()
   vector<Type> Sa(n);
   vector<Type> Ca(n);
   vector<Type> fit_prop(n);
-
-  //vector<Type> Fa(n);
+  
+  // fishing mortality at age
+  vector<Type> Fa(n);
+  vector<Type> expN(n);
+  vector<Type> totBio(n);
+  vector<Type> expBio(n);
 
   // weight 
   vector<Type> Wa(n);
   vector<Type> Mat(n);
   vector<Type> CWa(n);
+  
   vector<Type> unfished(n);
   vector<Type> fished(n); 
-  
-  //Type Fcur = Type(0.10);
   
   // negative log likelihood - set to 0 ----
   // von b
@@ -161,7 +165,14 @@ Type objective_function<Type>::operator()()
 		CWa(i) = Ca(i) * Wa(i);
 		unfished(i) = UnNa(i) * Wa(i) * Mat(i);
 		fished(i) = Na(i) * Wa(i) * Mat(i);
+		Fa(i) = Sa(i) * Fcur;
+		expN(i) = Na(i) * Sa(i);
+		totBio(i) = Na(i) * Wa(i);
+		expBio(i) = expN(i) * Wa(i);
 	}
+  
+  Type exploitN = sum(Ca) / sum(expN);
+	Type exploitB = sum(CWa) / sum(expBio);
   
   tot_nll += nll;
   tot_nll += nll1;
@@ -197,6 +208,8 @@ Type objective_function<Type>::operator()()
   REPORT(CWa);
   REPORT(unfished);
   REPORT(fished);
+  REPORT(exploitN);
+  REPORT(exploitB)
   
   return tot_nll;
 }
