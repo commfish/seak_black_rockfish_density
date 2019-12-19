@@ -55,6 +55,11 @@ data.frame(length = 1:70) %>%
 mat_int = -7.521637
 mat_slope = 0.717806
 
+data.frame(age = 1:25) %>% 
+  mutate(maturity = exp(mat_int + mat_slope * age) / (1 + exp(mat_int + mat_slope * age)))  %>% 
+  ggplot(aes(age, maturity)) + 
+  geom_line()
+
 # choose data ----
 # length based
 # 
@@ -118,26 +123,30 @@ data = list(age = brf$age,
             lw_int = lw_int,
             lw_slope = lw_slope,
             mat_b0 = mat_int,
-            mat_b1 = mat_slope)
+            mat_b1 = mat_slope,
+            mu_M = 0.13, # based on barefoot ecologist tool
+            sigma_M = 0.01)
 
 # starting parameters
 params <- list(Linf = 55, kappa = 0.15, t0 = -0.5, log_von_sigma = 0.001,
-               Fcur = 0.07, M = 0.123,
+               Fcur = 0.07, M = 0.13,
                alpha = 10, beta = -1.0, log_sel_sigma = 0.0001)
 
 # add parameter bounds 
-map = list(M = factor(NA))
+# map = list(M = factor(NA))
            # alpha = factor(NA), beta = factor(NA)) #M = factor(NA)
+map = list()
+
 L = list(Linf = 20, kappa = 0.05, t0 = -10.0, log_von_sigma = 0.0001,
          Fcur = 0.03, 
-         # M = 0.1,
+         M = 0.05,
          alpha = 5, 
          beta = -2.5, 
          log_sel_sigma = 0.0001)
 
 U = list(Linf = 70, kappa = 0.35, t0 = 5.0, log_von_sigma = 10,
          Fcur = 0.2, 
-         # M = 0.2,
+         M = 0.3,
          alpha = 17, 
          beta = -0.9, 
          log_sel_sigma = 10)
@@ -157,6 +166,7 @@ fit <- nlminb(model$par,
 
 best <- model$env$last.par.best
 rep <- sdreport(model)
+rep
 
 best
 summary(rep, select = "all", p.value = T)

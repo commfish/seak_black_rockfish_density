@@ -24,6 +24,10 @@ Type objective_function<Type>::operator()()
   DATA_INTEGER(lw_slope);
   DATA_INTEGER(mat_b0);
   DATA_INTEGER(mat_b1);
+  
+  // natural mortality prior (assume normal prior with mu and sigma)
+  DATA_SCALAR(mu_M)           
+  DATA_SCALAR(sigma_M)        
 
   // parameters ----
   
@@ -159,7 +163,10 @@ Type objective_function<Type>::operator()()
   
   nll1 = -sum(dnorm(prop, fit_prop, sel_sigma, true));
 
-
+  // Prior for natural mortality
+  Type prior_M = 0;
+  prior_M += Type(0.5) * pow(M - mu_M, 2) / pow(sigma_M, 2);
+  
   // biomass estimates --------------------
 	for(int i = 0; i<n; i++){
 		CWa(i) = Ca(i) * Wa(i);
@@ -177,6 +184,7 @@ Type objective_function<Type>::operator()()
   tot_nll += nll;
   tot_nll += nll1;
   tot_nll += von_nll;
+  tot_nll += prior_M;
   
   // reports ---- --------------------------------------------------------------------
   
